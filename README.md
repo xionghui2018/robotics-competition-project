@@ -63,6 +63,35 @@
 4.save， 完成
 
 
+## Error5 : 设置core文件转存时，出现错误：`bash: Permission denied`
+
+#### 发生原因：
+
+没有用root权限进行读写
+
+#### 解决方法：
+
+1. 使用`su`命令进入root权限进行读写
+2. 如果出现`dsu: Authentication failure`，说明没有设置root密码
+3. 使用`sudopasswd root`命令设置密码，再完成方法一
+4. 使用 ctrl+D,exit,logout任意方式退出root
+
+#### 延申：为什么要进行core文件转存 
+
+#### 参考文档： <https://blog.csdn.net/zdw_zoro/article/details/78052246>
+
+## Error6 : can not find `rxtools` after install `ros-kinetic-desktop-full`
+
+Why my full package didn't contain Rxtools? And where can I download it?
+
+#### 解决办法
+
+书本背锅.`rxtools`不被`kinetic`包含，只存在于 `etectric`,`fuerte` 和 `groovy`
+
+我们可以使用 `rqt_console`来做和`rxtools`一样的事情.
+
+#### 参考文档 : <http://wiki.ros.org/rxtools>
+
 
 # ........未完待续，踩坑就更，大家也可以在issue处添加
 # 转载自我的个人github：https://github.com/lifuguan/Ubuntu-ROS-daily-porblem
