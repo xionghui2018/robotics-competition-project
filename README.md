@@ -93,7 +93,3 @@ Why my full package didn't contain Rxtools? And where can I download it?
 #### 参考文档 : <http://wiki.ros.org/rxtools>
 
 
-# ........未完待续，踩坑就更，大家也可以在issue处添加
-# 转载自我的个人github：https://github.com/lifuguan/Ubuntu-ROS-daily-porblem
-
-
