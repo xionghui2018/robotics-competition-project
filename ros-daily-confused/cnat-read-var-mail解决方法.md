@@ -8,5 +8,5 @@
 2. 在python文件中的开头加上：
 `#!/usr/bin/env python`
 
-## Referrence : Getting Python error “from: can't read /var/mail/Bio
+## Referrence : （http://stackoverflow.com/questions/16069816/getting-python-error-from-cant-read-var-mail-bio）
 ## Referrence ： （https://www.cnblogs.com/qq952693358/p/6293087.html）
