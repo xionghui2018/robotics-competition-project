@@ -1,144 +1,176 @@
 #include <PID_v1.h>
-int IN1 = 4;
-int IN2 = 5;
-int IN3 = 6;
-int IN4 = 7;//对应L298N模块 IN1/2/3/4,用于控制电机方向与启停
+int IN1_left = 31;
+int IN2_left = 32;
+int IN3_left = 33;
+int IN4_left = 34;       //对应控制右轮L298N模块-1 IN1/2/3/4,用于控制电机方向与启停
+int IN1_right = 41;
+int IN2_right = 42;
+int IN3_right = 43;
+int IN4_right = 44;       //对应控制左轮L298N模块-2 IN1/2/3/4,用于控制电机方向与启停
+double vel_in = 0.0;
+double omg_in = 0.0;
+void test();
 
-int huoer_l = 2;//霍尔传感器计数
-int huoer_r = 3;//霍尔传感器计数
-int PWM_L = 10;
-int PWM_R = 11;// PWM_L/PWM_R分别控制左/右电机
+class motor_settings
+{
+private:
 
-int cishui_l = 80;//次数int 用于计数
-double cishud_l;//次数double 用于计算转速
-double input_l = 80;//pid的输入值 由转速赋给
-double output_l = 80;//pid的输出值 由pid算法计算出 用于提供电机PWM[对应test的zkb(占空比)]
-double rad_l=0;//转速 由次数除以33[30(减速比)*11(编码器缺口数)/10(每秒采样10次)]
-unsigned long times_l = 0;
-int taketime_l = 100;//时间变量 对应每秒采样10次 若需改动则转速计算式也要相应改动
-double Setpoint_l;//pid的期望值(期望转速)
-double Kp_l=0.2, Ki_l=3, Kd_l=0.02; //P/I/D的值 
-PID myPID_l(&input_l, &output_l, &Setpoint_l, Kp_l, Ki_l, Kd_l, DIRECT); //pid算法
+public:
 
-int cishui_r = 80;//次数int 用于计数
-double cishud_r;//次数double 用于计算转速
-double input_r = 80;//pid的输入值 由转速赋给
-double output_r = 80;//pid的输出值 由pid算法计算出 用于提供电机PWM[对应test的zkb(占空比)]
-double rad_r=0;//转速 由次数除以33[30(减速比)*11(编码器缺口数)/10(每秒采样10次)]
-unsigned long times_r = 0;
-int taketime_r = 100;//时间变量 对应每秒采样10次 若需改动则转速计算式也要相应改动
-double Setpoint_r;//pid的期望值(期望转速)
-double Kp_r=0.2, Ki_r=3, Kd_r=0.02; //P/I/D的值 
-PID myPID_r(&input_r, &output_r, &Setpoint_r, Kp_r, Ki_r, Kd_r, DIRECT); //pid算法
+  double Kp = 0.0, Ki = 0.0, Kd = 0.0; //P/I/D的值
+  int status = 0;
+  int hall = 0;                //arduino上传入霍尔传感器计数的引脚
+  int PWM = 0;                 //arduino上控制分别控制左/右电机的引脚
+  int counter = 0;             //次数int 用于计数
+  double counter_rotation = 0; //次数double 用于计算转速
+  double input_PID = 80;       //次数double 用于计算转速
+  double output_PID = 80;      //pid的输出值 由pid算法计算出 用于提供电机PWM[对应test的zkb(占空比)]
+  double rad = 0;              //转速 由次数除以33[30(减速比)*11(编码器缺口数)/10(每秒采样10次)]
+  double vel_out = 0.0;
+  unsigned long times = 0;
+  int take_time = 100;
+  double SetPoint;
+  
+  PID myPID;
+  
+  
 
-boolean result;//pid算法的返回值 无用
-
-double omg;
-double v_l;
-double v_r;
-double v;
-
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600); 
-  pinMode(huoer_l,INPUT);
-  pinMode(huoer_r,INPUT);
-  pinMode(PWM_L,OUTPUT);
-  pinMode(PWM_R,OUTPUT);
-  pinMode(IN1,OUTPUT);
-  pinMode(IN2,OUTPUT);
-  pinMode(IN3,OUTPUT);
-  pinMode(IN4,OUTPUT);
-  digitalWrite(IN1,HIGH);
-  digitalWrite(IN2,LOW);
-  digitalWrite(IN3,HIGH);
-  digitalWrite(IN4,LOW);  
-  attachInterrupt(digitalPinToInterrupt(huoer_l), count_l, FALLING);//中断函数 用于计数
-  attachInterrupt(digitalPinToInterrupt(huoer_r), count_r, FALLING);//中断函数 用于计数
-   myPID_l.SetMode(AUTOMATIC);//设置PID为自动模式
-   myPID_l.SetSampleTime(100);//设置PID采样频率为100ms
-   myPID_l.SetOutputLimits(10, 250);  // 输出在10-250之间
-   myPID_r.SetMode(AUTOMATIC);//设置PID为自动模式
-   myPID_r.SetSampleTime(100);//设置PID采样频率为100ms
-   myPID_r.SetOutputLimits(10, 250);  // 输出在10-250之间
-}
-
-
-void loop() {
-  v = 8*3.14*2;
-  omg = 0.3;
- v_l = v + omg*15;
- v_r = v - omg*15;
- Setpoint_l = v_l/(8*3.14)*33;  //填入的数字除以33即为转速/所需转速乘以33即为Setpoint_l
- pid_l();
- Setpoint_r = v_r/(8*3.14)*33;  //填入的数字除以33即为转速/所需转速乘以33即为Setpoint_l
- pid_r();
- }
-
-void count_l() { 
-  cishui_l++;
-}
-void count_r() { 
-  cishui_r++;
-}
-
-void pid_l(){
-  if(Setpoint_l <80){
-  myPID_l.SetTunings(2, 10, 0.02);
- }
- if(Setpoint_l <61){
-  myPID_l.SetTunings(0.5, 6, 0.02);
- }
- if(Setpoint_l <41){
-  myPID_l.SetTunings(0.2, 3, 0.02);
- }
-  input_l = cishud_l;
-  result = myPID_l.Compute();//PID转换完成返回值为1
-  analogWrite(PWM_L,output_l);
-  if (millis() >= times_l)
-  { cishud_l = cishui_l;
-    rad_l = cishud_l/33;
-    test_l();
-    times_l = millis()+taketime_l;
-    cishui_l = 0;//输出速度结果后清零，记录下一秒的触发次数
+  void pid_process()
+  {
+    if (SetPoint < 80)
+    {
+      myPID.SetTunings(2, 10, 0.02);
+    }
+    if (SetPoint < 61)
+    {
+      myPID.SetTunings(0.5, 6, 0.02);
+    }
+    if (SetPoint < 41)
+    {
+      myPID.SetTunings(0.2, 3, 0.02);
+    }
+    input_PID = counter_rotation;
+    myPID.Compute(); //PID转换完成返回值为1
+    analogWrite(PWM, output_PID);
+    if (millis() >= times)
+    {
+      counter_rotation = counter;
+      rad = counter_rotation / 33;
+      test();
+      times = millis() + take_time;
+      counter = 0; //输出速度结果后清零，记录下一秒的触发次数
+    }
+    else
+    {
+      Serial.print("k");
+      delay(10);
+    }
+    
+  }
+  void vel_process()
+  {
+    if (status == 1 || status == 3)
+    {
+        vel_out = vel_in + omg_in * 15;
+    }
+    else if (status == 2 || status == 4)
+    {
+        vel_out = vel_in - omg_in * 15;
     }
   }
-void pid_r(){
- if(Setpoint_r <80){
-  myPID_r.SetTunings(2, 10, 0.02);
- }
- if(Setpoint_r <61){
-  myPID_r.SetTunings(0.5, 6, 0.02);
- }
- if(Setpoint_r <41){
-  myPID_r.SetTunings(0.2, 3, 0.02);
- }
-  input_r = cishud_r;
-  result = myPID_r.Compute();//PID转换完成返回值为1
-  analogWrite(PWM_R,output_r);
-  if (millis() >= times_r)
-  { cishud_r = cishui_r;
-    rad_r = cishud_l/33;
-    test_r();
-    times_r = millis()+taketime_r;
-    cishui_r = 0;//输出速度结果后清零，记录下一秒的触发次数
-    }
-  }
-void test_l(){
+  void test()
+  {
     Serial.println();
-    Serial.print(output_l);
+    Serial.print(output_PID);
     Serial.println("-zkb");
-    Serial.print(cishud_l);
+    Serial.print(counter_rotation);
     Serial.println("-cishu");
-    Serial.print(rad_l);
-    Serial.println("rad_l/s");
+    Serial.print(rad);
+    Serial.println("rad/s");
   }
-void test_r(){
-    Serial.println();
-    Serial.print(output_r);
-    Serial.println("-zkb");
-    Serial.print(cishud_r);
-    Serial.println("-cishu");
-    Serial.print(rad_r);
-    Serial.println("rad_r/s");
+  //用于在setup函数中设置各电机引脚状态
+  motor_settings(int a, int b, int c) : hall(a), PWM(b), status(c), myPID(&input_PID, &output_PID, &SetPoint, Kp, Ki, Kd, DIRECT)
+  { 
+    myPID.SetMode(AUTOMATIC);                                     //设置PID为自动模式
+    myPID.SetSampleTime(100);                                     //设置PID采样频率为100ms
+    myPID.SetOutputLimits(10, 250);                               // 输出在40-240之间
+                                                                  // Setpoint = 66;  //设置PID的输出值
+    pinMode(hall,INPUT);
+    pinMode(PWM,OUTPUT);
+
+
+
   }
+};
+
+motor_settings left_front_wheel(2, 10, 1);
+motor_settings right_front_wheel(3, 11, 2);
+motor_settings left_back_wheel(4, 12, 3);
+motor_settings right_back_wheel(5, 13, 4);
+
+void left_front_count()
+{
+  left_front_wheel.counter++;
+}
+void right_front_count()
+{
+  right_front_wheel.counter++;
+}
+void left_back_count()
+{
+  left_back_wheel.counter++;
+}
+void right_back_count()
+{
+  right_back_wheel.counter++;
+}
+
+
+void setup()
+{
+  Serial.begin(9600);
+  pinMode(IN1_left, OUTPUT);
+  pinMode(IN2_left, OUTPUT);
+  pinMode(IN3_left, OUTPUT);
+  pinMode(IN4_left, OUTPUT);
+
+  pinMode(IN1_right, OUTPUT);
+  pinMode(IN2_right, OUTPUT);
+  pinMode(IN3_right, OUTPUT);
+  pinMode(IN4_right, OUTPUT);
+
+  digitalWrite(IN1_left, HIGH);
+  digitalWrite(IN2_left, LOW);
+  digitalWrite(IN3_left, HIGH);
+  digitalWrite(IN4_left, LOW);
+
+  digitalWrite(IN1_right, HIGH);
+  digitalWrite(IN2_right, LOW);
+  digitalWrite(IN3_right, HIGH);
+  digitalWrite(IN4_right, LOW);
+  attachInterrupt(digitalPinToInterrupt(left_front_wheel.hall), left_front_count, FALLING);
+  attachInterrupt(digitalPinToInterrupt(right_front_wheel.hall), right_front_count, FALLING);
+  attachInterrupt(digitalPinToInterrupt(left_back_wheel.hall), left_back_count, FALLING);
+  attachInterrupt(digitalPinToInterrupt(right_back_wheel.hall), right_back_count, FALLING); //中断函数 用于0计数
+}
+void loop()
+{
+  vel_in = 8 * 3.14 * 2;
+  omg_in = 0.3;
+  left_front_wheel.vel_process();
+  left_front_wheel.SetPoint = left_front_wheel.vel_out / (8 * 3.14) * 33; //填入的数字除以33即为转速/所需转速乘以33即为Setpoint_l
+  left_front_wheel.pid_process();
+
+  right_front_wheel.vel_process();
+  right_front_wheel.SetPoint = right_front_wheel.vel_out / (8 * 3.14) * 33; //填入的数字除以33即为转速/所需转速乘以33即为Setpoint_l
+  right_front_wheel.pid_process();
+
+  left_back_wheel.vel_process();
+  left_back_wheel.SetPoint = left_back_wheel.vel_out / (8 * 3.14) * 33; //填入的数字除以33即为转速/所需转速乘以33即为Setpoint_l
+  left_back_wheel.pid_process();
+
+  right_back_wheel.vel_process();
+  right_back_wheel.SetPoint = right_back_wheel.vel_out / (8 * 3.14) * 33; //填入的数字除以33即为转速/所需转速乘以33即为Setpoint_l
+  right_back_wheel.pid_process();
+
+}
